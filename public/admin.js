@@ -17,7 +17,7 @@ function render(){app.replaceChildren();D&&D.__in?admin():login()}
 
 function login(msg=''){
   app.append(h('div',{style:'max-width:360px;margin:12vh auto 0'},
-    h('div',{cls:'brand',style:'justify-content:center;margin-bottom:6px'},h('span',{cls:'logo'},ic('store',22)),h('span',{textContent:D&&D.name||'الماركت'})),
+    h('div',{cls:'brand',style:'justify-content:center;margin-bottom:6px'},logo(),h('span',{textContent:D&&D.name||'الماركت'})),
     h('p',{style:'text-align:center;color:var(--mu);margin:0 0 18px',textContent:'تسجيل دخول صاحب الماركت'}),
     h('label',{textContent:'كلمة السر'}),
     h('input',{type:'password',id:'pw',autocomplete:'current-password',on:{keydown(e){if(e.key==='Enter')go()}}}),

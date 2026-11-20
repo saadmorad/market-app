@@ -13,6 +13,25 @@ const st=(p,w)=>w?1:step(p);
 const items=()=>{const r=[];D.products.forEach(p=>[false,true].forEach(w=>{const q=cart[kk(p,w)];if(q>0)r.push({p,w,q,pr:pr(p,w),u:un(p,w)})}));return r};
 const subtotal=()=>Math.round(items().reduce((s,i)=>s+i.pr*i.q,0));
 const count=()=>items().length;
+let dip=null,instEl=null;
+const standalone=()=>(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent);
+const canInstall=()=>!standalone()&&(dip||isIOS());
+async function doInstall(){
+  if(dip){dip.prompt();try{await dip.userChoice}catch(e){}dip=null;drawInstall()}
+  else if(isIOS())alert('علشان تثبّت التطبيق: اضغط زر المشاركة في سفاري، وبعدين اختار "إضافة إلى الشاشة الرئيسية".');
+}
+function drawInstall(){
+  if(!instEl)return;instEl.replaceChildren();
+  if(!canInstall()||LS.g('mk_pwa_x',0))return;
+  instEl.append(h('div',{cls:'note',style:'justify-content:space-between;gap:10px'},
+    h('span',{style:'display:flex;gap:8px;align-items:center'},ic('download',20),'ثبّت الماركت على موبايلك وافتحه زي أي تطبيق'),
+    h('span',{style:'display:flex;gap:6px;flex:none'},
+      h('button',{cls:'chip on',textContent:'تثبيت',on:{click:doInstall}}),
+      h('button',{cls:'ib',style:'width:34px;height:34px;box-shadow:none',on:{click(){LS.s('mk_pwa_x',1);drawInstall()}}},ic('x',16)))));
+}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dip=e;drawInstall()});
+window.addEventListener('appinstalled',()=>{dip=null;drawInstall()});
 const LS={g(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}},s(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 let orders=LS.g('mk_orders',[]),otab='cur',navEl=null;
 Object.assign(info,LS.g('mk_info',{}));
@@ -32,9 +51,10 @@ function menu(){
   const o=h('div',{style:'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50'});
   const go=(m,t)=>()=>{o.remove();mode=m;if(t)otab=t;render()};
   const it=(i,l,f,b)=>h('button',{cls:'mi',on:{click:f}},h('span',{},ic(i,22),l),b?h('span',{cls:'bd',textContent:b}):'');
-  const p=h('div',{cls:'dr'},h('div',{cls:'brand',style:'margin-bottom:12px'},h('span',{cls:'logo'},ic('store',22)),h('span',{textContent:D.name})),
+  const p=h('div',{cls:'dr'},h('div',{cls:'brand',style:'margin-bottom:12px'},logo(),h('span',{textContent:D.name})),
     it('home','الرئيسية',go('shop')),it('cart','السلة',go('cart'),count()||''),
     it('box','طلباتي',go('orders')),
+    canInstall()?it('download','تثبيت التطبيق',()=>{o.remove();doInstall()}):'',
     h('a',{cls:'mi',href:'tel:+'+D.wa},h('span',{},ic('phone',22),'اتصل بنا')),
     D.hours?h('div',{style:'margin-top:14px;color:var(--mu);font-size:14px;display:flex;gap:8px;align-items:center;padding:0 10px'},ic('clock',18),'مواعيد العمل: '+D.hours):'');
   o.addEventListener('click',e=>{if(e.target===o)o.remove()});
@@ -45,11 +65,12 @@ let listEl,barEl,chipEl;
 const pill=(i,t)=>h('span',{cls:'pill'},ic(i,16),t);
 function shop(){
   app.append(h('header',{cls:'ab'},
-    h('div',{cls:'abl'},h('button',{cls:'ib',on:{click:menu}},ic('menu')),h('div',{cls:'brand'},h('span',{cls:'logo'},ic('store',22)),h('span',{textContent:D.name}))),
+    h('div',{cls:'abl'},h('button',{cls:'ib',on:{click:menu}},ic('menu')),h('div',{cls:'brand'},logo(),h('span',{textContent:D.name}))),
     h('div',{cls:'abl'},
       h('button',{cls:'ib',on:{click(){mode='cart';render()}}},ic('cart'),count()?h('span',{cls:'bg',textContent:count()}):''))));
   app.append(h('div',{cls:'hero'},h('div',{cls:'hi'},h('small',{textContent:'أهلًا بيك في'}),h('h1',{textContent:D.name}),h('p',{textContent:'خيرات الأرض لحد باب بيتك'})),
     h('div',{cls:'pills'},D.free>0?pill('truck','توصيل مجاني فوق '+D.free+' ج'):'',D.hours?pill('clock',D.hours):'')));
+  instEl=h('div');app.append(instEl);drawInstall();
   if(D.notice)app.append(h('div',{cls:'note'},ic('tag',18),D.notice));
   app.append(h('div',{cls:'sbx'},ic('search',19),h('input',{placeholder:'ابحث عن منتج...',value:q,on:{input(e){q=e.target.value;drawList()}}})));
   app.append(h('div',{cls:'seg'},[['قطاعي',false],['جملة',true]].map(([l,v])=>h('button',{cls:'sg'+(ws===v?' on':''),textContent:l,on:{click(){ws=v;cat='الكل';render()}}}))));
@@ -168,4 +189,5 @@ function ordersView(){
   }
   D.notice=D.notice||'';D.hours=D.hours||'';D.theme=D.theme||0;
   document.title=D.name;applyTheme();render();
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 })();

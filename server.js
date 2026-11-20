@@ -66,7 +66,7 @@ function clean(b) {
     zones: zones.length ? zones : [{ n: 'البلد', f: 10 }],
     notice: str(b.notice, 200),
     hours: str(b.hours, 80),
-    theme: Math.min(4, Math.floor(num(b.theme))),
+    theme: Math.min(5, Math.floor(num(b.theme))),
     products,
   };
 }
@@ -195,6 +195,41 @@ app.post(
 app.get('/api/admin/backup', requireAdmin, (req, res) => {
   res.set('Content-Disposition', 'attachment; filename="market-backup.json"');
   res.json(store);
+});
+
+// ملف تثبيت التطبيق (PWA): الاسم واللون بيتغيروا مع إعدادات المتجر
+const THEME_COLORS = [
+  { pr: '#0f6b5c', bg: '#f4efe4' },
+  { pr: '#8a2346', bg: '#f7f0ea' },
+  { pr: '#155b6e', bg: '#f2eee7' },
+  { pr: '#5c6b2a', bg: '#f4efe0' },
+  { pr: '#52306b', bg: '#f6f1f3' },
+  { pr: '#1d3f9e', bg: '#f3f5fb' },
+];
+app.get('/manifest.webmanifest', (req, res) => {
+  const t = THEME_COLORS[store.theme] || THEME_COLORS[0];
+  res.set('Content-Type', 'application/manifest+json; charset=utf-8');
+  res.set('Cache-Control', 'no-cache');
+  res.json({
+    id: '/',
+    name: store.name,
+    short_name: store.name.slice(0, 12),
+    description: 'اطلب من الماركت وهنوصلك لحد البيت',
+    lang: 'ar',
+    dir: 'rtl',
+    start_url: '/',
+    scope: '/',
+    display: 'standalone',
+    orientation: 'portrait',
+    background_color: t.bg,
+    theme_color: t.bg,
+    categories: ['shopping', 'food'],
+    icons: [
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
+  });
 });
 
 app.use('/uploads', express.static(UPLOADS, { maxAge: '30d', immutable: true, index: false }));
