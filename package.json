@@ -1,0 +1,15 @@
+{
+  "name": "village-market",
+  "version": "1.0.0",
+  "description": "متجر بسيط لماركت صغير مع توصيل ولوحة تحكم",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
