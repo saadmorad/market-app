@@ -36,37 +36,58 @@ function clean(b) {
     .slice(0, 50)
     .map((z) => ({ n: str(z && z.n, 40), f: num(z && z.f) }))
     .filter((z) => z.n);
+
   const seen = new Set();
-  const products = (Array.isArray(b.products) ? b.products : [])
-    .slice(0, 1000)
-    .map((p) => {
-      p = p || {};
-      let id = str(p.id, 40).replace(/[^\w-]/g, '');
-      if (!id || seen.has(id)) id = rid();
-      seen.add(id);
-      return {
-        id,
-        n: str(p.n, 120),
-        p: num(p.p),
-        c: str(p.c, 40),
-        u: str(p.u, 12) || 'قطعة',
-        a: !!p.a,
-        i: /^[a-f0-9]{16,32}\.jpg$/.test(p.i || '') ? p.i : '',
-        w: num(p.w),
-        wu: str(p.wu, 12) || 'كرتونة',
-        wm: Math.max(1, Math.round(num(p.wm, 1)) || 1),
-      };
-    })
-    .filter((p) => p.n);
+  const uniqueId = (raw) => {
+    let id = str(raw, 40).replace(/[^\w-]/g, '');
+    while (!id || seen.has(id)) id = rid();
+    seen.add(id);
+    return id;
+  };
+  const img = (v) => (/^[a-f0-9]{16,32}\.jpg$/.test(v || '') ? v : '');
+
+  // كل منتج نوعه: k = 'r' (قطاعي) أو 'w' (جملة)
+  const products = [];
+  (Array.isArray(b.products) ? b.products : []).slice(0, 1500).forEach((p) => {
+    p = p || {};
+    const n = str(p.n, 120);
+    if (!n) return;
+    const common = { n, c: str(p.c, 40), a: !!p.a, i: img(p.i) };
+    const pp = num(p.p);
+    const ww = num(p.w);
+    const retail = (id) => ({ id: uniqueId(id), k: 'r', ...common, p: pp, u: str(p.u, 12) || 'قطعة', w: 0, wu: 'كرتونة', wm: 1 });
+    const whole = (id) => ({
+      id: uniqueId(id), k: 'w', ...common, p: 0, u: 'قطعة',
+      w: ww, wu: str(p.wu, 12) || 'كرتونة', wm: Math.max(1, Math.round(num(p.wm, 1)) || 1),
+    });
+    if (p.k === 'w') products.push(whole(p.id));
+    else if (p.k === 'r') products.push(retail(p.id));
+    else if (ww > 0 && pp > 0) {
+      // بيانات قديمة: المنتج كان قطاعي وجملة مع بعض، فنفصله لمنتجين
+      products.push(retail(p.id));
+      products.push(whole(str(p.id, 34) + '_w'));
+    } else if (ww > 0) products.push(whole(p.id));
+    else products.push(retail(p.id));
+  });
+
+  // أقسام المنتجات (مشروبات، عصائر، ...)
+  let cats = (Array.isArray(b.cats) ? b.cats : []).map((c) => str(c, 40)).filter(Boolean);
+  products.forEach((p) => {
+    if (p.c && !cats.includes(p.c)) cats.push(p.c);
+  });
+  cats = [...new Set(cats)].slice(0, 100);
+
   return {
     name: str(b.name, 60) || 'الماركت',
     wa: str(b.wa, 20).replace(/\D/g, ''),
+    tel: str(b.tel, 20).replace(/[^\d+]/g, ''),
     fee: num(b.fee, 10),
     free: num(b.free),
     zones: zones.length ? zones : [{ n: 'البلد', f: 10 }],
     notice: str(b.notice, 200),
     hours: str(b.hours, 80),
     theme: Math.min(5, Math.floor(num(b.theme))),
+    cats,
     products,
   };
 }
