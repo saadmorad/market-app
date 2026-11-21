@@ -30,6 +30,14 @@ const num = (v, d = 0) => {
   return Number.isFinite(x) && x >= 0 ? Math.round(x * 100) / 100 : d;
 };
 
+const DEFAULT_UNITS = ['كيلو', 'قطعة', 'لتر', 'علبة', 'كيس', 'زجاجة', 'رغيف', 'بيضة', 'حزمة', 'دستة'];
+const DEFAULT_WUNITS = ['كرتونة', 'شيكارة', 'دستة', 'صندوق', 'جوال', 'طبق'];
+const BADGES = ['hot', 'new', 'offer'];
+function cleanList(arr, def, used) {
+  const l = (Array.isArray(arr) && arr.length ? arr : def).map((x) => str(x, 14)).filter(Boolean);
+  used.forEach((x) => { if (x && !l.includes(x)) l.push(x); });
+  return [...new Set(l)].slice(0, 50);
+}
 function clean(b) {
   b = b && typeof b === 'object' ? b : {};
   const zones = (Array.isArray(b.zones) ? b.zones : [])
@@ -52,13 +60,13 @@ function clean(b) {
     p = p || {};
     const n = str(p.n, 120);
     if (!n) return;
-    const common = { n, c: str(p.c, 40), a: !!p.a, i: img(p.i) };
+    const common = { n, c: str(p.c, 40), d: str(p.d, 400), a: !!p.a, i: img(p.i), o: num(p.o), b: BADGES.includes(p.b) ? p.b : '' };
     const pp = num(p.p);
     const ww = num(p.w);
-    const retail = (id) => ({ id: uniqueId(id), k: 'r', ...common, p: pp, u: str(p.u, 12) || 'قطعة', w: 0, wu: 'كرتونة', wm: 1 });
+    const retail = (id) => ({ id: uniqueId(id), k: 'r', ...common, p: pp, u: str(p.u, 14) || 'قطعة', w: 0, pp: 0, wu: 'كرتونة', wm: 1 });
     const whole = (id) => ({
       id: uniqueId(id), k: 'w', ...common, p: 0, u: 'قطعة',
-      w: ww, wu: str(p.wu, 12) || 'كرتونة', wm: Math.max(1, Math.round(num(p.wm, 1)) || 1),
+      w: ww, pp: num(p.pp), wu: str(p.wu, 14) || 'كرتونة', wm: 1,
     });
     if (p.k === 'w') products.push(whole(p.id));
     else if (p.k === 'r') products.push(retail(p.id));
@@ -77,6 +85,9 @@ function clean(b) {
   });
   cats = [...new Set(cats)].slice(0, 100);
 
+  const units = cleanList(b.units, DEFAULT_UNITS, products.filter((p) => p.k === 'r').map((p) => p.u));
+  const wunits = cleanList(b.wunits, DEFAULT_WUNITS, products.filter((p) => p.k === 'w').map((p) => p.wu));
+
   return {
     name: str(b.name, 60) || 'الماركت',
     wa: str(b.wa, 20).replace(/\D/g, ''),
@@ -88,6 +99,8 @@ function clean(b) {
     hours: str(b.hours, 80),
     theme: Math.min(5, Math.floor(num(b.theme))),
     cats,
+    units,
+    wunits,
     products,
   };
 }

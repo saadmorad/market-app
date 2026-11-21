@@ -33,5 +33,7 @@ const svg=(n,s=20,w=1.8)=>'<svg width="'+s+'" height="'+s+'" viewBox="0 0 24 24"
 const ic=(n,s=20)=>{const e=document.createElement('span');e.className='i';e.innerHTML=svg(n,s);return e};
 function h(t,a={},...k){const e=document.createElement(t);for(const[x,v]of Object.entries(a)){if(x==='on'){for(const[n,f]of Object.entries(v))e.addEventListener(n,f)}else if(x==='cls')e.className=v;else e[x]=v}k.flat().forEach(c=>e.append(c));return e}
 const logo=()=>h('span',{cls:'logo',style:'background:none;overflow:hidden'},h('img',{src:'/icon-192.png',alt:'',style:'width:100%;height:100%;object-fit:cover'}));
+const copyrightText=()=>'جميع الحقوق محفوظة © '+new Date().getFullYear()+' لشركة المهندس للبرمجيات';
+const copyright=()=>h('div',{cls:'ft',textContent:copyrightText()});
 function pic(p){const d=h('div',{cls:'im'});const ph=()=>{d.replaceChildren();d.innerHTML=svg('img',48,1.3)};if(p.i){const m=h('img',{src:'/uploads/'+p.i,alt:p.n,loading:'lazy'});m.onerror=ph;d.append(m)}else ph();return d}
 function toast(m){const t=h('div',{cls:'toast',textContent:m});document.body.append(t);setTimeout(()=>t.remove(),2200)}

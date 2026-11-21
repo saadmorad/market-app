@@ -1,7 +1,7 @@
 const app=document.getElementById('app');
 let atab='r';
 const uid=()=>'p'+Date.now().toString(36)+Math.floor(Math.random()*1000);
-const newProd=(k,extra={})=>({id:uid(),k,n:'',p:0,c:'',u:'كيلو',a:true,i:'',w:0,wu:'كرتونة',wm:1,...extra});
+const newProd=(k,extra={})=>({id:uid(),k,n:'',p:0,c:'',u:'كيلو',a:true,i:'',w:0,pp:0,d:'',o:0,b:'',wu:'كرتونة',wm:1,...extra});
 function shrink(file){return new Promise((res,rej)=>{const im=new Image(),u=URL.createObjectURL(file);im.onload=()=>{const s=Math.min(1,600/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);c.toBlob(b=>b?res(b):rej(),'image/jpeg',.82)};im.onerror=rej;im.src=u})}
 
 async function api(path,opt={}){
@@ -65,12 +65,12 @@ function login(msg=''){
     h('label',{textContent:'كلمة السر'}),
     h('input',{type:'password',id:'pw',autocomplete:'current-password',on:{keydown(e){if(e.key==='Enter')go()}}}),
     h('div',{id:'err',style:'color:#d44;font-size:14px;min-height:20px;margin-bottom:8px',textContent:msg}),
-    h('button',{cls:'btn c',textContent:'دخول',on:{click:go}})));
+    h('button',{cls:'btn c',textContent:'دخول',on:{click:go}}),copyright()));
   async function go(){
     const pw=document.getElementById('pw').value;
     try{
       await api('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
-      D=await api('/api/store',{cache:'no-store'});D.__in=true;D.cats=D.cats||[];applyTheme();render();
+      D=await api('/api/store',{cache:'no-store'});D.__in=true;D.cats=D.cats||[];D.units=D.units||[];D.wunits=D.wunits||[];applyTheme();render();
     }catch(e){
       document.getElementById('err').textContent=e.status===429?'محاولات كتير. استنى شوية وجرّب تاني.':'كلمة السر غلط';
     }
@@ -103,26 +103,59 @@ function catsCard(){
 }
 
 // ---------- صف منتج (قطاعي أو جملة) ----------
+// ---------- وحدات القياس (كرتونة، شيكارة، كيلو...): تقدر تضيف أي اسم ----------
+function unitsCard(key,ph,field,kind){
+  const box=h('div',{cls:'sum'});
+  const touch=(old,nv)=>D.products.forEach(p=>{if(p.k===kind&&p[field]===old)p[field]=nv});
+  D[key].forEach((u,i)=>{
+    const inp=h('input',{value:u,style:'margin:0;flex:1',on:{change(e){
+      const nv=e.target.value.trim(),old=D[key][i];
+      if(!nv||D[key].includes(nv)){e.target.value=old;return}
+      D[key][i]=nv;touch(old,nv);render();
+    }}});
+    box.append(h('div',{style:'display:flex;gap:6px;margin-bottom:6px;align-items:center'},inp,
+      h('button',{cls:'del',on:{click(){
+        if(D[key].length<2){alert('لازم تفضل وحدة واحدة على الأقل');return}
+        const name=D[key][i];
+        if(!confirm('حذف الوحدة "'+name+'"؟'))return;
+        D[key].splice(i,1);render();
+      }}},ic('trash',18))));
+  });
+  const add=h('input',{placeholder:ph,style:'margin:0;flex:1'});
+  const go=()=>{const v=add.value.trim();if(!v)return;if(D[key].includes(v)){alert('الوحدة موجودة بالفعل');return}D[key].push(v);render()};
+  add.addEventListener('keydown',e=>{if(e.key==='Enter')go()});
+  box.append(h('div',{style:'display:flex;gap:6px;margin-top:8px'},add,h('button',{cls:'chip on',textContent:'إضافة',on:{click:go}})));
+  return box;
+}
+
 function prodRow(p){
   const wh=p.k==='w',pick=()=>pickImages(false,p);
   const box=h('div',{style:'flex:none;display:flex;flex-direction:column;align-items:center;gap:6px'},
     h('div',{style:'cursor:pointer',on:{click:pick}},pic(p)),
     h('button',{cls:'chip',style:'font-size:12px;padding:5px 10px;display:inline-flex;gap:4px;align-items:center',on:{click:pick}},ic('img',14),p.i?'تغيير الصورة':'إضافة صورة'));
   const catSel=h('select',{on:{change(e){p.c=e.target.value}}},[h('option',{value:'',textContent:'بدون قسم'}),...D.cats.map(c=>h('option',{value:c,textContent:c,selected:c===p.c}))]);
+  const oldIn=h('input',{value:p.o||'',type:'number',step:'any',inputMode:'decimal',placeholder:'السعر قبل الخصم (اختياري)',on:{input(e){p.o=Number(e.target.value)}}});
+  const badgeSel=h('select',{on:{change(e){p.b=e.target.value}}},[['','بدون علامة'],['hot','علامة: الأكثر طلبًا'],['new','علامة: جديد'],['offer','علامة: عرض']].map(([v,l])=>h('option',{value:v,textContent:l,selected:v===(p.b||'')})));
+  const mid=h('div',{cls:'r'},oldIn,badgeSel);
+  const descIn=h('textarea',{value:p.d||'',placeholder:'وصف المنتج وتفاصيله (اختياري) - بيظهر للعميل لما يضغط على المنتج',rows:2,on:{input(e){p.d=e.target.value}}});
   const nameIn=h('input',{value:p.n,placeholder:wh?'اسم منتج الجملة':'اسم المنتج',on:{input(e){p.n=e.target.value}}});
   const fields=wh?[
     nameIn,
     h('div',{cls:'r'},
       h('input',{value:p.w||'',type:'number',inputMode:'numeric',placeholder:'سعر الجملة',on:{input(e){p.w=Number(e.target.value)}}}),
-      h('input',{value:p.wm>1?p.wm:'',type:'number',inputMode:'numeric',placeholder:'أقل كمية',on:{input(e){p.wm=Math.max(1,Math.round(Number(e.target.value))||1)}}})),
-    h('select',{on:{change(e){p.wu=e.target.value}}},['كرتونة','شيكارة','دستة','صندوق','جوال','طبق'].map(u=>h('option',{value:u,textContent:'وحدة الجملة: '+u,selected:u===(p.wu||'كرتونة')}))),
-    catSel
+      h('input',{value:p.pp||'',type:'number',step:'any',inputMode:'decimal',placeholder:'سعر القطعة',on:{input(e){p.pp=Number(e.target.value)}}})),
+    h('select',{on:{change(e){p.wu=e.target.value}}},(D.wunits||[]).map(u=>h('option',{value:u,textContent:'وحدة الجملة: '+u,selected:u===(p.wu||'كرتونة')}))),
+    mid,
+    catSel,
+    descIn
   ]:[
     nameIn,
     h('div',{cls:'r'},
       h('input',{value:p.p||'',type:'number',inputMode:'numeric',placeholder:'السعر',on:{input(e){p.p=Number(e.target.value)}}}),
-      h('select',{on:{change(e){p.u=e.target.value}}},['كيلو','قطعة','لتر','علبة','كيس','زجاجة','رغيف','بيضة','حزمة','دستة'].map(u=>h('option',{value:u,textContent:'الوحدة: '+u,selected:u===p.u})))),
-    catSel
+      h('select',{on:{change(e){p.u=e.target.value}}},(D.units||[]).map(u=>h('option',{value:u,textContent:'الوحدة: '+u,selected:u===p.u})))),
+    mid,
+    catSel,
+    descIn
   ];
   return h('div',{cls:'arow'},box,h('div',{cls:'af'},...fields,
     h('div',{cls:'fl'},
@@ -158,10 +191,18 @@ function admin(){
   app.append(h('div',{cls:'sum',style:'padding:12px'},
     h('button',{cls:'btn c sec',on:{click(){pickImages(true)}}},ic('img',20),'رفع صور كتير مرة واحدة'),
     h('div',{style:'color:var(--mu);font-size:13px;margin-top:8px;line-height:1.7',textContent:'اختار كل الصور مرة واحدة من المعرض أو الكاميرا. لو اسم الصورة زي اسم المنتج (مثلًا طماطم.jpg) هتتربط بيه لوحدها، وغير كده هتتعمل منتجات جديدة في أول القائمة وانت تكتب لها الاسم والسعر.'})));
+  if(atab==='w'){
+    app.append(h('label',{textContent:'وحدات الجملة (كرتونة، شيكارة، دستة...) - ضيف أي اسم تحبه'}));
+    app.append(unitsCard('wunits','اسم وحدة جديدة (مثلًا: شيكارة 50 كجم)','wu','w'));
+  }else{
+    app.append(h('label',{textContent:'وحدات القطاعي (كيلو، قطعة، لتر...) - ضيف أي اسم تحبه'}));
+    app.append(unitsCard('units','اسم وحدة جديدة (مثلًا: كيس صغير)','u','r'));
+  }
   const list=D.products.filter(p=>p.k===atab);
   if(!list.length)app.append(h('div',{cls:'empty'},h('div',{cls:'emp'},ic('box',36),atab==='r'?'لسه مفيش منتجات قطاعي':'لسه مفيش منتجات جملة')));
   list.forEach(p=>app.append(prodRow(p)));
   app.append(h('div',{style:'display:flex;gap:8px;margin-top:14px;flex-wrap:wrap'},h('a',{cls:'chip',href:'/',target:'_blank',style:'text-decoration:none',textContent:'فتح المتجر'}),h('a',{cls:'chip',href:'/api/admin/backup',style:'text-decoration:none',textContent:'تنزيل نسخة احتياطية'})));
+  app.append(copyright());
   app.append(h('div',{cls:'act'},h('button',{cls:'btn c',textContent:'حفظ التعديلات',on:{click:save}})));
 }
 
@@ -169,7 +210,7 @@ async function save(){
   const body=JSON.parse(JSON.stringify(D));delete body.__in;
   try{
     D=await api('/api/admin/store',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    D.__in=true;D.cats=D.cats||[];applyTheme();render();toast('تم الحفظ');
+    D.__in=true;D.cats=D.cats||[];D.units=D.units||[];D.wunits=D.wunits||[];applyTheme();render();toast('تم الحفظ');
   }catch(e){
     if(e.status===401){alert('انتهت الجلسة. سجّل الدخول من جديد.');D.__in=false;render()}
     else alert('تعذر الحفظ. جرّب تاني.');
@@ -178,7 +219,7 @@ async function save(){
 
 (async()=>{
   try{D=await api('/api/store',{cache:'no-store'})}catch(e){D={name:'الماركت',zones:[],products:[],cats:[],theme:0}}
-  D.notice=D.notice||'';D.hours=D.hours||'';D.theme=D.theme||0;D.cats=D.cats||[];applyTheme();
+  D.notice=D.notice||'';D.hours=D.hours||'';D.theme=D.theme||0;D.cats=D.cats||[];D.units=D.units||[];D.wunits=D.wunits||[];applyTheme();
   try{await api('/api/admin/me');D.__in=true}catch(e){}
   render();
 })();
